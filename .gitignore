@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.pyc
+.env
+.env.*
+.envrc
+
+# Virtual env
+env/
+.venv/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# DB & data pribadi
+db/*.db
+db/*.sqlite
+data-karyawan.json
+face_images/
+captures/
+attendance_captures/
+logs/
+
+# Build / cache
+dist/
+build/
+*.egg-info/
+.pytest_cache/
+
+# IDE
+.vscode/
+.idea/
+
+# Docker artifacts (opsional)
+*.tar
+
+# Other
+Jetson.md
+*.bat
+*.ico
