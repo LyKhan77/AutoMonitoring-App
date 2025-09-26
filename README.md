@@ -1,6 +1,6 @@
 # GSPE Auto-Monitoring System
 
-A real-time employee monitoring system using CCTV cameras and face recognition technology. The system provides live video streaming, automatic employee presence tracking, alert notifications, and comprehensive management features via a modern web dashboard.
+A real-time employee monitoring system using CCTV cameras and face recognition technology. The system provides live video streaming, automatic employee presence tracking, alert notifications, and comprehensive attendance management.
 
 ## Features
 
@@ -20,17 +20,23 @@ A real-time employee monitoring system using CCTV cameras and face recognition t
 - Face quality gating (blur, brightness, size) before casting votes
 
 ### 🚨 Smart Alert System
-- Automatic alert generation when employees are absent >60 seconds
-- Persistent alert logging in database
-- Real-time notification dropdown with badge counter
+- Automatic alert generation when employees are absent (configurable timeout)
+- Persistent alert logging in database (`alert_logs`)
+- Real-time notification dropdown with badge counter (client UI)
 - Alert resolution tracking when employees return
- - Event rate control to prevent database spam for repeated sightings
+- Event rate control to prevent database spam for repeated sightings (configurable: `alert_min_interval_sec`)
+- Off-hours & pause gating (alerts/captures suppressed based on schedule state)
+- Optional WhatsApp notifications to Supervisors (via Meta Cloud API), async & rate-limited
 
 ### 📊 Attendance Management
-- Daily attendance tracking (first-in, last-out timestamps)
+- Daily attendance tracking with dedicated captures:
+  - `first_in.jpg` and `last_out.jpg` per employee per day
+  - First-In overwrite policy (`attendance_first_in_overwrite_enabled`)
+  - Last-Out optional delay to stabilize frame (`attendance_last_out_delay_sec`)
+  - Daily retention job cleans old folders (`attendance_captures_retention_days`)
 - Employee presence status (Available/Off)
 - Comprehensive event logging
-- Daily data maintenance and cleanup
+- Daily maintenance (events purge + attendance captures retention)
 
 ### 🖥️ Web Dashboard
 - Modern responsive UI built with Tailwind CSS
@@ -61,113 +67,85 @@ A real-time employee monitoring system using CCTV cameras and face recognition t
                        │ • Attendance    │
                        │ • Alerts        │
                        └─────────────────┘
+
+External Notification (optional):
+```
+Backend ──(async queue)──> WhatsApp Cloud API ──> Supervisors
+```
 ```
 
 ## Installation
 
-Berikut adalah langkah-langkah instalasi serta konfigurasi yang harus dilakukan agar aplikasi dapat berjalan optimal di server maupun lingkungan produksi:
+Refer to `Installation.md` for a complete guide (RTX 5090 server, CUDA 12.x, Docker/WSL notes).
 
-### 1. Persyaratan Sistem
-- OS: Ubuntu 22.04 LTS atau 24.04 LTS disarankan. Windows Server 2022+ juga didukung.
-- GPU: NVIDIA (disarankan seri yang sudah kompatibel dengan CUDA 12.6+ seperti RTX 40xx, RTX 30xx, RTX 5090, dan seri terbaru). Pastikan driver NVIDIA dan CUDA (minimal versi 12.6) sudah terpasang.
-- CPU/RAM: Minimal 8 core CPU dan 16 GB RAM untuk banyak kamera.
-- Storage: SSD direkomendasikan.
-- Jaringan: Pastikan koneksi stabil ke IP Camera (RTSP) dan browser client.
+### Quick Prerequisites
+- Python 3.10+
+- RTSP cameras or streams (H.264 recommended)
+- Modern web browser
 
-### 2. Instalasi Driver NVIDIA, CUDA, cuDNN (wajib untuk inference GPU)
-- Install driver NVIDIA terbaru:
-  ```bash
-  sudo apt update && sudo apt -y upgrade
-  sudo apt -y install ubuntu-drivers-common
-  sudo ubuntu-drivers autoinstall
-  sudo reboot
-  # Setelah reboot:
-  nvidia-smi
-  ```
-- Install CUDA Toolkit (minimal versi 12.6):
-  - Download di https://developer.nvidia.com/cuda-downloads
-  - Ikuti petunjuk instalasinya, lalu pastikan CUDA terpasang:
-    ```bash
-    nvcc --version
-    ```
-- Install cuDNN (cocokkan versi dengan CUDA)
-  - Download di https://developer.nvidia.com/cudnn (login diperlukan)
+### Dependencies (bare-metal)
+```bash
+pip install -r requirements.txt
+```
+Key packages: Flask(+SocketIO), SQLAlchemy, OpenCV, InsightFace/ONNX Runtime, NumPy.
 
-### 3. Instal Paket Sistem
-- Di Ubuntu:
-  ```bash
-  sudo apt -y install python3 python3-venv python3-pip git
-  # Jika pakai RTSP GStreamer
-  sudo apt -y install gstreamer1.0-tools gstreamer1.0-libav \
-    gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
-    gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly
-  sudo apt -y install ffmpeg  # opsional
-  ```
+### Setup
 
-### 4. Setup Python Virtual Environment
-- Buat dan aktifkan virtual environment:
-  ```bash
-  python3 -m venv env
-  source env/bin/activate
-  pip install --upgrade pip wheel setuptools
-  ```
-- Install dependensi aplikasi:
-  ```bash
-  pip install -r requirements.txt
-  ```
-- Untuk akselerasi GPU ONNX Runtime (opsional tapi direkomendasikan):
-  ```bash
-  pip install --upgrade onnxruntime-gpu==1.18.1
-  # Pastikan CUDA/cuDNN cocok
-  ```
+1. **Clone the repository**
+```bash
+git clone <repository-url>
+cd FR-V3
+```
 
-### 5. Konfigurasi Awal
-- Edit file `config/parameter_config.json` agar sesuai kebutuhan server/produksi (provider CUDA, fps_target, dsb.).
-- Buat konfigurasi kamera di folder `camera_configs/` (setiap kamera punya folder & config.json).
+2. **Install dependencies**
+```bash
+pip install -r requirements.txt
+```
 
-### 6. Inisialisasi Database
-- Jalankan:
-  ```bash
-  source env/bin/activate
-  python database_models.py
-  ```
+3. **Initialize database**
+```bash
+python database_models.py
+```
 
-### 7. Menjalankan Aplikasi
-- Untuk development:
-  ```bash
-  python app.py
-  ```
-- Untuk produksi (direkomendasikan Gunicorn + Eventlet):
-  ```bash
-  pip install gunicorn eventlet
-  gunicorn -k eventlet -w 1 -b 0.0.0.0:5000 app:app
-  ```
+4. **Configure cameras**
+   - Create camera configs in `camera_configs/CAM{ID}/config.json`
+   - Example config:
+```json
+{
+    "id": 1,
+    "name": "Main Entrance",
+    "rtsp_url": "rtsp://192.168.1.100:554/stream",
+    "enabled": true,
+    "location": "Entrance Zone"
+}
+```
 
-### 8. Reverse Proxy & Service (Opsional)
-- Konfigurasi Nginx sebagai reverse proxy ke `127.0.0.1:5000`.
-- (Opsional) Buat systemd service untuk menjalankan aplikasi secara otomatis saat server boot.
+Additional/advanced parameters supported (optional):
 
-### 9. Cek & Tuning GPU
-- Pastikan CUDA/ONNX Runtime terdeteksi GPU:
-  ```bash
-  python -c "import onnxruntime as ort; print(ort.get_device())" # Output: GPU
-  ```
-- Aktifkan persistence mode GPU:
-  ```bash
-  sudo nvidia-smi -pm 1
-  ```
+- Tracking & smoothing
+  - `smoothing_window` (int, default 5)
+  - `smoothing_min_votes` (int, default 3)
+  - `tracker_iou_threshold` (float, default 0.3)
+  - `tracker_max_misses` (int, default 8)
+- Event rate control
+  - `event_min_interval_sec` (float seconds, default 5.0)
+- Quality gating
+  - `quality_min_blur_var` (float, default 50.0)
+  - `quality_min_face_area_frac` (float, default 0.01)
+  - `quality_min_brightness` (float 0..1, default 0.15)
+  - `quality_max_brightness` (float 0..1, default 0.9)
+  - `quality_min_score` (float 0..1, default 0.3)
 
-### 10. Checklist Cepat
-- [ ] Driver NVIDIA, CUDA, cuDNN terpasang
-- [ ] Virtual environment & dependency terinstal
-- [ ] parameter_config.json sudah dikonfigurasi
-- [ ] Database sudah diinisialisasi
-- [ ] Aplikasi berjalan via Gunicorn/Eventlet
-- [ ] Kamera terkoneksi & preview tampil
-- [ ] Retensi attendance capture berjalan
+5. **Configure AI parameters** (optional)
+   - Edit `parameter_config.json` for detection thresholds and settings
 
+6. **Run the application**
+```bash
+python app.py
+```
 
-Jika mengalami kendala, cek kembali log aplikasi, konfigurasi, dan pastikan seluruh dependensi telah sesuai. Untuk detail troubleshooting dan maintenance, cek bagian Troubleshooting di bawah.
+7. **Access the dashboard**
+   - Open browser: `http://localhost:5000`
 
 ## Configuration
 
@@ -184,23 +162,19 @@ camera_configs/
     └── config.json
 ```
 
-### AI Parameters
-Configure face recognition settings in `parameter_config.json`:
+### AI & Runtime Parameters
+Most runtime parameters are in `config/parameter_config.json`. Important keys:
+- `providers`: "CUDAExecutionProvider, CPUExecutionProvider"
+- `fps_target`, `stream_max_width`, `jpeg_quality`
+- `use_gstreamer_rtsp`, `rtsp_protocol` (tcp|udp), `gst_latency_ms`
+- Tracking: `tracker_iou_threshold`, `tracker_max_misses`, smoothing keys
+- Presence: `tracking_timeout`, `present_timeout_sec`
+- Alerts: `alert_min_interval_sec`
+- Attendance: `attendance_first_in_overwrite_enabled`, `attendance_last_out_delay_sec`, `attendance_captures_retention_days`
 
-```json
-{
-    "face_recognition": {
-        "similarity_threshold": 0.5,
-        "detection_confidence": 0.8,
-        "tracking_timeout": 10
-    },
-    "camera": {
-        "frame_width": 640,
-        "frame_height": 480,
-        "fps": 15
-    }
-}
-```
+WhatsApp config lives separately in `config/config_whatsapp.json`:
+- `enabled`, `provider` ("meta"), `phone_number_id`, `access_token_env`, `supervisors` list
+  - Do NOT store tokens in repo; set env var `WHATSAPP_ACCESS_TOKEN` at runtime.
 
 ## Usage
 
@@ -229,6 +203,10 @@ Configure face recognition settings in `parameter_config.json`:
 3. Pilih tabel (Both / Events only / Alert Logs only).
 4. Opsional: pilih From dan To Date (YYYY-MM-DD). Kosongkan untuk hapus semua.
 5. Konfirmasi. Sistem akan menampilkan jumlah baris yang terhapus.
+
+### Attendance Captures Report
+- Endpoint: `GET /api/report/attendance_captures?employee_id=ID&date=YYYY-MM-DD`
+- Mengembalikan URL `first_in` dan `last_out` jika ada.
 
 ### Alert Management
 - Alerts automatically generated when employees absent >60s
@@ -287,12 +265,14 @@ Camera 1:N Event
 - `frame` - Receive video frame
 - `stream_error` - Stream error notification
 - `stream_stopped` - Stream stopped notification
+ - (Optional) `alert_log_created` client listener can push UI notifications (if wired)
 
 ## Maintenance
 
 ### Daily Maintenance
 The system automatically performs daily maintenance:
 - Purges old Event records (keeps only current day)
+- Attendance captures retention (remove old `attendance_captures/YYYY-MM-DD` beyond retention days)
 - Runs at startup and scheduled at midnight
 - Prevents database bloat
 
@@ -341,16 +321,28 @@ Monitor console output for:
 ### Project Structure
 ```
 FR-V3/
-├── app.py                 # Main Flask application
-├── module_AI.py          # AI/Face recognition engine
-├── database_models.py    # Database models and ORM
-├── parameter_config.json # AI configuration
-├── requirements.txt      # Python dependencies
-├── templates/
-│   └── index.html       # Frontend UI
-├── camera_configs/      # Camera configurations
-├── face_images/         # Employee face images
-└── attendance.db        # SQLite database
+├── app.py                      # Main Flask application
+├── module_AI.py               # AI/Face recognition engine
+├── database_models.py         # Database models and ORM (+light migrations)
+├── requirements.txt           # Python dependencies
+├── config/
+│   ├── parameter_config.json  # Runtime parameters (AI/RTSP/Attendance)
+│   └── config_whatsapp.json   # WhatsApp config (no secrets/tokens)
+├── helpers/
+│   └── whatsapp.py            # Async WhatsApp sender (Meta Cloud API)
+├── scripts/
+│   └── import_employees.py    # Upsert employees from data-karyawan.json
+├── static/                    # JS/CSS assets (incl. notifications.js)
+├── templates/                 # HTML templates
+├── camera_configs/            # Camera JSON configs (per CAM folder)
+├── captures/                  # Rolling per-camera snapshots (runtime)
+├── attendance_captures/       # First-In/Last-Out captures (runtime)
+├── db/
+│   └── attendance.db          # SQLite database (ignored by .gitignore)
+├── Dockerfile                 # CUDA 12.8 + Python 3.10.18 base (x86_64)
+├── docker-compose.yaml        # Optional runtime stack
+├── Installation.md            # RTX 5090/Server install guide
+└── docker-run.md              # How to build/run (CMD/PowerShell/WSL)
 ```
 
 ### Adding New Features
@@ -362,21 +354,23 @@ FR-V3/
 ### Testing
 - Test camera connections via Settings page
 - Verify face recognition with known employees
-- Check alert generation and resolution
-- Monitor database operations
+- Check alert generation and resolution (with schedule gating)
+- Verify attendance captures are created on ENTER/EXIT
+- Monitor WhatsApp deliveries (if enabled) and server logs
 
 ## Security Considerations
 
-- RTSP credentials stored in database (not exposed to frontend)
-- No authentication implemented (add as needed)
+- RTSP credentials stored server-side (not exposed to frontend)
+- WhatsApp Access Token must be provided via environment variable (not in repo)
 - SQLite file permissions should be restricted
-- Consider HTTPS for production deployment
+- Consider HTTPS and authN/authZ for production deployments
 
-## Performance Optimization
+## Performance & Latency Optimization
 
-- Use hardware acceleration for video processing
-- Implement frame skipping for high FPS cameras
-- Consider Redis for session management in multi-instance setup
+- Use GPU (CUDAExecutionProvider) and keep GPU in persistence mode
+- Prefer RTSP UDP + shorter GOP (I-frame interval ~1–2× FPS) for low latency
+- Adjust `fps_target`, `stream_max_width`, `annotation_stride`, `frame_skip`
+- Use `use_gstreamer_rtsp: true` and tune `gst_latency_ms` on Linux
 - Database indexing on frequently queried columns
 
 ## License
@@ -404,6 +398,13 @@ For technical support or questions:
 - Implemented face quality gating (blur/brightness/size) before voting
 - Added event rate control to reduce Event table spam
 - New admin API and UI to reset Events/Alert Logs by date range
+
+### Version 3.2
+- Attendance captures (First-In/Last-Out) with overwrite and delayed Last-Out
+- Daily retention job for `attendance_captures/`
+- Off-hours/pause gating for alert/capture suppression
+- Optional WhatsApp notifications to Supervisors (Meta Cloud API)
+- Dockerized deployment (RTX 5090), WSL/Windows notes
 
 ---
 
