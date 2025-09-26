@@ -69,7 +69,7 @@ Berikut adalah langkah-langkah instalasi serta konfigurasi yang harus dilakukan 
 
 ### 1. Persyaratan Sistem
 - OS: Ubuntu 22.04 LTS atau 24.04 LTS disarankan. Windows Server 2022+ juga didukung.
-- GPU: NVIDIA RTX 5090 atau setara (pastikan driver & CUDA terbaru sudah terpasang).
+- GPU: NVIDIA (disarankan seri yang sudah kompatibel dengan CUDA 12.6+ seperti RTX 40xx, RTX 30xx, RTX 5090, dan seri terbaru). Pastikan driver NVIDIA dan CUDA (minimal versi 12.6) sudah terpasang.
 - CPU/RAM: Minimal 8 core CPU dan 16 GB RAM untuk banyak kamera.
 - Storage: SSD direkomendasikan.
 - Jaringan: Pastikan koneksi stabil ke IP Camera (RTSP) dan browser client.
@@ -84,7 +84,7 @@ Berikut adalah langkah-langkah instalasi serta konfigurasi yang harus dilakukan 
   # Setelah reboot:
   nvidia-smi
   ```
-- Install CUDA Toolkit (minimal versi 12.4 untuk RTX 50xx):
+- Install CUDA Toolkit (minimal versi 12.6):
   - Download di https://developer.nvidia.com/cuda-downloads
   - Ikuti petunjuk instalasinya, lalu pastikan CUDA terpasang:
     ```bash
