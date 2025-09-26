@@ -65,6 +65,23 @@ def _http_post_json(url: str, payload: Dict[str, Any], headers: Dict[str, str], 
     except Exception:
         return 0
 
+def _send_http_bulk(msg: str, cfg: Dict[str, Any], targets: Optional[List[int]]) -> bool:
+    url = cfg.get('endpoint_url')
+    if not url:
+        return False
+    ids = targets or cfg.get('supervisor_ids') or []
+    if not isinstance(ids, list) or not ids:
+        return False
+    payload = {
+        'user_ids': ids,
+        'message': msg,
+        'source': cfg.get('source') or 'FaceRecognitionApp',
+        'use_hr_id': bool(cfg.get('use_hr_id', True)),
+    }
+    headers = {'Content-Type': 'application/json'}
+    status = _http_post_json(url, payload, headers)
+    return 200 <= status < 300
+
 
 def _send_meta_text(to: str, body: str, cfg: Dict[str, Any]) -> bool:
     phone_id = cfg.get('phone_number_id')
@@ -98,19 +115,27 @@ def _worker_loop():
         except Empty:
             continue
         try:
-            to = item.get('to')
             msg = item.get('msg')
-            key = item.get('key') or f"{to}:{hash(msg)}"
-            if not _dedupe_allowed(key, cooldown):
-                continue
-            _rate_limited(rate)
             ok = False
             if provider == 'meta':
+                to = item.get('to')
+                key = item.get('key') or f"{to}:{hash(msg)}"
+                if not _dedupe_allowed(key, cooldown):
+                    continue
+                _rate_limited(rate)
                 ok = _send_meta_text(to, msg, cfg)
+            elif provider == 'http':
+                targets = item.get('targets')  # list of HR IDs
+                # For bulk, dedupe by message + joined targets or provided key
+                key = item.get('key') or f"bulk:{hash(msg)}"
+                if not _dedupe_allowed(key, cooldown):
+                    continue
+                _rate_limited(rate)
+                ok = _send_http_bulk(msg, cfg, targets)
             # could add other providers here
             # print success/fail lightly
             if not ok:
-                print(f"[WA] send failed to {to}")
+                print(f"[WA] send failed (provider={provider})")
         except Exception as e:
             print(f"[WA] worker error: {e}")
         finally:
@@ -134,11 +159,17 @@ def enqueue_to_supervisors(message: str, key_hint: Optional[str] = None) -> int:
     cfg = load_wa_config()
     if not bool(cfg.get('enabled', False)):
         return 0
-    sups = cfg.get('supervisors') or []
-    count = 0
-    for to in sups:
-        if not to:
-            continue
-        _q.put({'to': to, 'msg': message, 'key': f"{to}:{key_hint}" if key_hint else None})
-        count += 1
-    return count
+    provider = (cfg.get('provider') or 'meta').lower()
+    if provider == 'http':
+        targets = cfg.get('supervisor_ids') or []
+        _q.put({'msg': message, 'key': key_hint, 'targets': targets})
+        return 1 if targets else 0
+    else:
+        sups = cfg.get('supervisors') or []
+        count = 0
+        for to in sups:
+            if not to:
+                continue
+            _q.put({'to': to, 'msg': message, 'key': f"{to}:{key_hint}" if key_hint else None})
+            count += 1
+        return count
