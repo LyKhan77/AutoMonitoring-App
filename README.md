@@ -1,6 +1,6 @@
 # GSPE Auto-Monitoring System
 
-A real-time employee monitoring system using CCTV cameras and face recognition technology. The system provides live video streaming, automatic employee presence tracking, alert notifications, and comprehensive attendance management.
+A real-time employee monitoring system using CCTV cameras and face recognition technology. The system provides live video streaming, automatic employee presence tracking, alert notifications, and comprehensive management features via a modern web dashboard.
 
 ## Features
 
@@ -65,80 +65,109 @@ A real-time employee monitoring system using CCTV cameras and face recognition t
 
 ## Installation
 
-### Prerequisites
-- Python 3.8+
-- OpenCV compatible camera or RTSP stream
-- Modern web browser
+Berikut adalah langkah-langkah instalasi serta konfigurasi yang harus dilakukan agar aplikasi dapat berjalan optimal di server maupun lingkungan produksi:
 
-### Dependencies
-```bash
-pip install -r requirements.txt
-```
+### 1. Persyaratan Sistem
+- OS: Ubuntu 22.04 LTS atau 24.04 LTS disarankan. Windows Server 2022+ juga didukung.
+- GPU: NVIDIA RTX 5090 atau setara (pastikan driver & CUDA terbaru sudah terpasang).
+- CPU/RAM: Minimal 8 core CPU dan 16 GB RAM untuk banyak kamera.
+- Storage: SSD direkomendasikan.
+- Jaringan: Pastikan koneksi stabil ke IP Camera (RTSP) dan browser client.
 
-Key packages:
-- Flask & Flask-SocketIO
-- SQLAlchemy
-- OpenCV (cv2)
-- InsightFace
-- NumPy
+### 2. Instalasi Driver NVIDIA, CUDA, cuDNN (wajib untuk inference GPU)
+- Install driver NVIDIA terbaru:
+  ```bash
+  sudo apt update && sudo apt -y upgrade
+  sudo apt -y install ubuntu-drivers-common
+  sudo ubuntu-drivers autoinstall
+  sudo reboot
+  # Setelah reboot:
+  nvidia-smi
+  ```
+- Install CUDA Toolkit (minimal versi 12.4 untuk RTX 50xx):
+  - Download di https://developer.nvidia.com/cuda-downloads
+  - Ikuti petunjuk instalasinya, lalu pastikan CUDA terpasang:
+    ```bash
+    nvcc --version
+    ```
+- Install cuDNN (cocokkan versi dengan CUDA)
+  - Download di https://developer.nvidia.com/cudnn (login diperlukan)
 
-### Setup
+### 3. Instal Paket Sistem
+- Di Ubuntu:
+  ```bash
+  sudo apt -y install python3 python3-venv python3-pip git
+  # Jika pakai RTSP GStreamer
+  sudo apt -y install gstreamer1.0-tools gstreamer1.0-libav \
+    gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
+    gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly
+  sudo apt -y install ffmpeg  # opsional
+  ```
 
-1. **Clone the repository**
-```bash
-git clone <repository-url>
-cd FR-V3
-```
+### 4. Setup Python Virtual Environment
+- Buat dan aktifkan virtual environment:
+  ```bash
+  python3 -m venv env
+  source env/bin/activate
+  pip install --upgrade pip wheel setuptools
+  ```
+- Install dependensi aplikasi:
+  ```bash
+  pip install -r requirements.txt
+  ```
+- Untuk akselerasi GPU ONNX Runtime (opsional tapi direkomendasikan):
+  ```bash
+  pip install --upgrade onnxruntime-gpu==1.18.1
+  # Pastikan CUDA/cuDNN cocok
+  ```
 
-2. **Install dependencies**
-```bash
-pip install -r requirements.txt
-```
+### 5. Konfigurasi Awal
+- Edit file `config/parameter_config.json` agar sesuai kebutuhan server/produksi (provider CUDA, fps_target, dsb.).
+- Buat konfigurasi kamera di folder `camera_configs/` (setiap kamera punya folder & config.json).
 
-3. **Initialize database**
-```bash
-python database_models.py
-```
+### 6. Inisialisasi Database
+- Jalankan:
+  ```bash
+  source env/bin/activate
+  python database_models.py
+  ```
 
-4. **Configure cameras**
-   - Create camera configs in `camera_configs/CAM{ID}/config.json`
-   - Example config:
-```json
-{
-    "id": 1,
-    "name": "Main Entrance",
-    "rtsp_url": "rtsp://192.168.1.100:554/stream",
-    "enabled": true,
-    "location": "Entrance Zone"
-}
-```
+### 7. Menjalankan Aplikasi
+- Untuk development:
+  ```bash
+  python app.py
+  ```
+- Untuk produksi (direkomendasikan Gunicorn + Eventlet):
+  ```bash
+  pip install gunicorn eventlet
+  gunicorn -k eventlet -w 1 -b 0.0.0.0:5000 app:app
+  ```
 
-Additional/advanced parameters supported (optional):
+### 8. Reverse Proxy & Service (Opsional)
+- Konfigurasi Nginx sebagai reverse proxy ke `127.0.0.1:5000`.
+- (Opsional) Buat systemd service untuk menjalankan aplikasi secara otomatis saat server boot.
 
-- Tracking & smoothing
-  - `smoothing_window` (int, default 5)
-  - `smoothing_min_votes` (int, default 3)
-  - `tracker_iou_threshold` (float, default 0.3)
-  - `tracker_max_misses` (int, default 8)
-- Event rate control
-  - `event_min_interval_sec` (float seconds, default 5.0)
-- Quality gating
-  - `quality_min_blur_var` (float, default 50.0)
-  - `quality_min_face_area_frac` (float, default 0.01)
-  - `quality_min_brightness` (float 0..1, default 0.15)
-  - `quality_max_brightness` (float 0..1, default 0.9)
-  - `quality_min_score` (float 0..1, default 0.3)
+### 9. Cek & Tuning GPU
+- Pastikan CUDA/ONNX Runtime terdeteksi GPU:
+  ```bash
+  python -c "import onnxruntime as ort; print(ort.get_device())" # Output: GPU
+  ```
+- Aktifkan persistence mode GPU:
+  ```bash
+  sudo nvidia-smi -pm 1
+  ```
 
-5. **Configure AI parameters** (optional)
-   - Edit `parameter_config.json` for detection thresholds and settings
+### 10. Checklist Cepat
+- [ ] Driver NVIDIA, CUDA, cuDNN terpasang
+- [ ] Virtual environment & dependency terinstal
+- [ ] parameter_config.json sudah dikonfigurasi
+- [ ] Database sudah diinisialisasi
+- [ ] Aplikasi berjalan via Gunicorn/Eventlet
+- [ ] Kamera terkoneksi & preview tampil
+- [ ] Retensi attendance capture berjalan
 
-6. **Run the application**
-```bash
-python app.py
-```
 
-7. **Access the dashboard**
-   - Open browser: `http://localhost:5000`
+Jika mengalami kendala, cek kembali log aplikasi, konfigurasi, dan pastikan seluruh dependensi telah sesuai. Untuk detail troubleshooting dan maintenance, cek bagian Troubleshooting di bawah.
 
 ## Configuration
 
