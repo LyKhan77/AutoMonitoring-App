@@ -1,0 +1,43 @@
+{
+    "model": "InsightFace (Buffalo_L)",
+    "detection_threshold": 0.6,
+    "detection_size": [640, 640],
+    "recognition_cooldown": 20,
+    "providers": "CUDAExecutionProvider, CPUExecutionProvider",
+    "fps_target": 8,
+    "stream_max_width": 720,
+    "jpeg_quality": 60,
+    "annotation_stride": 3,
+    "frame_skip": false,
+    "multi_person": true,
+    "recognition_threshold": 0.60,
+    "max_distance_threshold": 150,
+    "embedding_similarity_threshold": 0.65,
+    "tracker_iou_threshold": 0.4,
+    "tracker_max_misses": 12,
+
+    "bbox_smoothing_factor": 0.7,
+    "smoothing_window": 7,
+    "smoothing_min_votes": 4,
+
+    "captures_enabled": true,
+    "captures_interval_sec": 5,
+    "captures_rotation": 5,
+    "captures_include_inactive": false,
+
+    "tracking_timeout": 120.0,
+    "present_timeout_sec": 120.0,
+    "alert_min_interval_sec": 120.0,
+    "away_mute_threshold_hours": 15,
+    "mark_absent_enabled": true,
+    "mark_absent_offset_minutes_before_end": 10, 
+    
+    "attendance_last_out_delay_sec": 10,
+    "attendance_first_in_overwrite_enabled": false,
+    "attendance_captures_retention_days": 30, 
+    
+    "use_gstreamer_rtsp": true,
+    "rtsp_protocol": "udp",
+    "rtsp_codec": "h264",
+    "gst_latency_ms": 25
+}

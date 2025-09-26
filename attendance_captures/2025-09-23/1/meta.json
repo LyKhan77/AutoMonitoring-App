@@ -1,0 +1,16 @@
+{
+  "first_in": {
+    "ts": "2025-09-23T03:12:47.650404Z",
+    "cam_id": 2,
+    "cam_name": "CAM 1",
+    "cam_area": "IT Departement",
+    "file": "first_in.jpg"
+  },
+  "last_out": {
+    "ts": "2025-09-23T06:21:30.255458Z",
+    "cam_id": 2,
+    "cam_name": "CAM 1",
+    "cam_area": "IT Departement",
+    "file": "last_out.jpg"
+  }
+}

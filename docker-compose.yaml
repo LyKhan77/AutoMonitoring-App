@@ -1,0 +1,33 @@
+version: "3.9"
+
+services:
+  frv3:
+    image: gspe-fr:cuda12.8-py3.10
+    container_name: frv3
+    # build opsional jika ingin build via compose:
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    # GPU (butuh NVIDIA Container Toolkit)
+    gpus: all
+    environment:
+      - TZ=Asia/Jakarta
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility,video
+    volumes:
+      - ./db:/app/db
+      - ./captures:/app/captures
+      - ./attendance_captures:/app/attendance_captures
+      - ./camera_configs:/app/camera_configs
+      - ./config:/app/config
+      - ./face_images:/app/face_images
+    restart: unless-stopped
+    # Healthcheck opsional:
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/config/params"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s

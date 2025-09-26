@@ -1,0 +1,13 @@
+{
+  "enabled": false,
+  "provider": "meta",
+  "phone_number_id": "REPLACE_WITH_PHONE_NUMBER_ID",
+  "access_token_env": "WHATSAPP_ACCESS_TOKEN",
+  "template_name": "alert_log_v1",
+  "template_language": "en",
+  "supervisors": [
+    "+62812XXXXXXX"
+  ],
+  "rate_limit_per_min": 30,
+  "dedupe_cooldown_sec": 60
+}
